@@ -2,13 +2,14 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"log"
 	"math/big"
 	"net/http"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -25,17 +26,35 @@ type VerifyRequest struct {
 }
 
 func verify(c *gin.Context) {
-
 	var data VerifyRequest
 	if err := c.ShouldBindJSON(&data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Decode the public key from hex
-	pubKeyBytes, err := hex.DecodeString(data.PublicKey)
+	// Decode the public key from Base64
+	derBytes, err := base64.StdEncoding.DecodeString(data.PublicKey)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid public key"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid public key format"})
+		return
+	}
+
+	log.Print("Public key: ", derBytes)
+
+	// Parse the public key
+	pubKey, err := x509.ParsePKIXPublicKey(derBytes)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse public key"})
+		return
+	}
+
+	// log.Print("Public key: ", pubKey)
+
+
+	// Assert the type to *ecdsa.PublicKey
+	ecdsaPubKey, ok := pubKey.(*ecdsa.PublicKey)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "public key is not of type ECDSA"})
 		return
 	}
 
@@ -52,20 +71,13 @@ func verify(c *gin.Context) {
 		return
 	}
 
-	log.Println("Bytes: ", data.Signature.R);
-	log.Println("Bytes: ", data.Signature.S);
+	// Convert R and S to big.Int
+	r := new(big.Int).SetBytes(rBytes)
+	s := new(big.Int).SetBytes(sBytes)
 
-	log.Println("rBytes: ", new(big.Int).SetBytes(rBytes));
-	log.Println("sBytes: ", new(big.Int).SetBytes(sBytes));
+	// Verify the signature
+	valid := ecdsa.Verify(ecdsaPubKey, []byte(data.HashMessage), r, s)
 
-	publicKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid public key format"})
-		return
-	}
-
-	valid := ecdsa.Verify(publicKey, []byte(data.HashMessage), new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes));
-	
 	log.Printf("Signature verification result: %v\n", valid)
 	c.JSON(http.StatusOK, gin.H{"valid": valid})
 }

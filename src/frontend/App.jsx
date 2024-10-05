@@ -3,6 +3,7 @@ import { ec as EC } from "elliptic";
 import CryptoJS from "crypto-js";
 import "./App.css";
 import config from "./config";
+import { Buffer } from "buffer";
 
 function App() {
   const [msg, setMsg] = useState("");
@@ -17,8 +18,6 @@ function App() {
   };
 
   const onClick = () => {
-    console.log("Value: ", msg);
-
     const hashMsg = CryptoJS.SHA256(msg).toString();
     const signature = keypair.sign(hashMsg);
 
@@ -37,6 +36,15 @@ function App() {
   };
 
   const SendtoSever = async (signatureHex, hashMsg) => {
+    // Convert public key to Der format
+    const pubKeyDer = keypair.getPublic(false, "der");
+
+    // Convert public key Der to base64
+    const publicKeyBase64 = Buffer.from(pubKeyDer).toString("base64");
+
+    console.log("Public Key Der: ", pubKeyDer);
+    console.log("Public Key: ", publicKeyBase64);
+
     const response = await fetch(`http://${IP}${Port}/verify`, {
       method: "POST",
       headers: {
@@ -45,7 +53,7 @@ function App() {
       body: JSON.stringify({
         signature: signatureHex,
         hashmessage: hashMsg,
-        publickey: keypair.getPublic().encode("hex"),
+        publickey: publicKeyBase64,
       }),
     });
 
