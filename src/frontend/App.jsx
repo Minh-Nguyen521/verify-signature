@@ -2,14 +2,15 @@ import { useState } from "react";
 import { ec as EC } from "elliptic";
 import CryptoJS from "crypto-js";
 import "./App.css";
+import config from "./config";
 
 function App() {
   const [msg, setMsg] = useState("");
   const ec = new EC("secp256k1");
   const keypair = ec.genKeyPair();
 
-  const IP = "192.168.1.103";
-  const Port = ":8080";
+  const IP = config.IP;
+  const Port = config.Port;
 
   const onChange = (e) => {
     setMsg(e.target.value);
