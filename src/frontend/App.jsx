@@ -4,6 +4,7 @@ import CryptoJS from "crypto-js";
 import "./App.css";
 import config from "./config";
 import { Buffer } from "buffer";
+import { ethers } from "ethers";
 
 function App() {
   const [msg, setMsg] = useState("");
@@ -17,11 +18,18 @@ function App() {
     setMsg(e.target.value);
   };
 
+  const publicKeyToAddress = (pubKey) => {
+    // Convert the public key to an Ethereum address
+    const address = ethers.utils.computeAddress(pubKey);
+    console.log("Address: ", address);
+  };
+
   const onClick = () => {
     const hashMsg = CryptoJS.SHA256(msg).toString();
     const signature = keypair.sign(hashMsg);
 
-    console.log(signature);
+    // console.log(signature);
+    publicKeyToAddress(keypair.getPublic("array"));
 
     // Convert signature to hex
     const signatureHex = {
@@ -29,21 +37,16 @@ function App() {
       s: signature.s.toString(16),
     };
 
-    console.log(signatureHex);
+    // console.log(signatureHex);
 
-    const address = SendtoSever(signatureHex, hashMsg);
-    // console.log("Address: ", address);
+    SendtoSever(signatureHex, hashMsg);
   };
 
   const SendtoSever = async (signatureHex, hashMsg) => {
-    // Convert public key to Der format
-    const pubKeyDer = keypair.getPublic(false, "der");
-
-    // Convert public key Der to base64
-    const publicKeyBase64 = Buffer.from(pubKeyDer).toString("base64");
-
-    console.log("Public Key Der: ", pubKeyDer);
-    console.log("Public Key: ", publicKeyBase64);
+    // Convert public key to base64
+    const publicKeyBase64 = Buffer.from(keypair.getPublic("array")).toString(
+      "base64"
+    );
 
     const response = await fetch(`http://${IP}${Port}/verify`, {
       method: "POST",
@@ -60,10 +63,10 @@ function App() {
     if (response.ok) {
       const data = await response.json();
       console.log("Data: ", data.valid);
-      // setAddress(data.address);
+      console.log("Address: ", data.address);
+    } else {
+      console.log("Error");
     }
-
-    // return Address;
   };
 
   return (

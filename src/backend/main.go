@@ -2,14 +2,14 @@ package main
 
 import (
 	"crypto/ecdsa"
-	"crypto/x509"
+	"crypto/elliptic"
 	"encoding/base64"
 	"encoding/hex"
-	"log"
 	"math/big"
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -33,28 +33,9 @@ func verify(c *gin.Context) {
 	}
 
 	// Decode the public key from Base64
-	derBytes, err := base64.StdEncoding.DecodeString(data.PublicKey)
+	pubBytes, err := base64.StdEncoding.DecodeString(data.PublicKey)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid public key format"})
-		return
-	}
-
-	log.Print("Public key: ", derBytes)
-
-	// Parse the public key
-	pubKey, err := x509.ParsePKIXPublicKey(derBytes)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse public key"})
-		return
-	}
-
-	// log.Print("Public key: ", pubKey)
-
-
-	// Assert the type to *ecdsa.PublicKey
-	ecdsaPubKey, ok := pubKey.(*ecdsa.PublicKey)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "public key is not of type ECDSA"})
 		return
 	}
 
@@ -75,11 +56,25 @@ func verify(c *gin.Context) {
 	r := new(big.Int).SetBytes(rBytes)
 	s := new(big.Int).SetBytes(sBytes)
 
-	// Verify the signature
-	valid := ecdsa.Verify(ecdsaPubKey, []byte(data.HashMessage), r, s)
 
-	log.Printf("Signature verification result: %v\n", valid)
-	c.JSON(http.StatusOK, gin.H{"valid": valid})
+	// convert the public key to ecdsa.PublicKey
+	curve := elliptic.P256()
+
+	x := new(big.Int).SetBytes(pubBytes[1:33])
+	y := new(big.Int).SetBytes(pubBytes[33:65])
+
+	publicKey := &ecdsa.PublicKey{
+		Curve: curve,
+		X:     x,
+		Y:     y,
+	}
+
+	// Verify the signature
+	valid := ecdsa.Verify(publicKey, []byte(data.HashMessage), r, s)
+
+    address := crypto.PubkeyToAddress(*publicKey).Hex()
+
+	c.JSON(http.StatusOK, gin.H{"address": address, "valid": valid})
 }
 
 func main() {
