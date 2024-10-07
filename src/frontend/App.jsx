@@ -4,7 +4,6 @@ import CryptoJS from "crypto-js";
 import "./App.css";
 import config from "./config";
 import { Buffer } from "buffer";
-import { ethers } from "ethers";
 
 function App() {
   const [msg, setMsg] = useState("");
@@ -18,18 +17,12 @@ function App() {
     setMsg(e.target.value);
   };
 
-  const publicKeyToAddress = (pubKey) => {
-    // Convert the public key to an Ethereum address
-    const address = ethers.utils.computeAddress(pubKey);
-    console.log("Address: ", address);
-  };
-
   const onClick = () => {
     const hashMsg = CryptoJS.SHA256(msg).toString();
     const signature = keypair.sign(hashMsg);
 
     // console.log(signature);
-    publicKeyToAddress(keypair.getPublic("array"));
+    // publicKeyToAddress(keypair.getPublic("array"));
 
     // Convert signature to hex
     const signatureHex = {
